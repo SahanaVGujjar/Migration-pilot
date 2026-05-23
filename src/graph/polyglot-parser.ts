@@ -3,6 +3,9 @@ import { SymbolStub } from '../core/types';
 
 const PY_EXT = ['.py'];
 const JAVA_EXT = ['.java'];
+const ANGULAR_COMPONENT_EXTS = ['.ts'];
+const ANGULAR_TEMPLATE_EXT = '.html';
+const ANGULAR_STYLE_EXTS = ['.css', '.scss'];
 
 export function isPythonFile(filePath: string): boolean {
   return PY_EXT.includes(path.extname(filePath));
@@ -193,6 +196,116 @@ function findFileEndingWith(allFiles: Set<string>, suffix: string): string | nul
       return file;
     }
   }
+  return null;
+}
+
+export function isAngularFile(filePath: string): boolean {
+  return /\.component\.ts$|\.service\.ts$|\.pipe\.ts$|\.guard\.ts$|\.directive\.ts$|\.module\.ts$/.test(filePath);
+}
+
+export function isAngularTemplateFile(filePath: string): boolean {
+  return /\.component\.html$/.test(filePath);
+}
+
+export function isAngularStyleFile(filePath: string): boolean {
+  return /\.component\.css$|\.component\.scss$/.test(filePath);
+}
+
+export function extractAngularImports(
+  content: string,
+  fromFile: string,
+  allFiles: Set<string>
+): string[] {
+  const dir = path.dirname(fromFile).replace(/\\/g, '/');
+  const imports: string[] = [];
+
+  const importRegex = /^import\s+.*?\s+from\s+['"]([^'"]+)['"]/gm;
+  let m;
+  while ((m = importRegex.exec(content)) !== null) {
+    const spec = m[1];
+    if (!spec.startsWith('.')) continue;
+    const resolved = resolveAngularImport(spec, dir, allFiles);
+    if (resolved) imports.push(resolved);
+  }
+
+  const templateUrl = /templateUrl\s*:\s*['"]([^'"]+)['"]/;
+  const templateMatch = content.match(templateUrl);
+  if (templateMatch) {
+    const resolved = resolveAngularImport(templateMatch[1], dir, allFiles);
+    if (resolved) imports.push(resolved);
+  }
+
+  const styleUrls = /styleUrls\s*:\s*\[([^\]]*)\]/;
+  const styleMatch = content.match(styleUrls);
+  if (styleMatch) {
+    const urls = styleMatch[1].match(/['"]([^'"]+)['"]/g);
+    if (urls) {
+      for (const url of urls) {
+        const clean = url.replace(/['"]/g, '');
+        const resolved = resolveAngularImport(clean, dir, allFiles);
+        if (resolved) imports.push(resolved);
+      }
+    }
+  }
+
+  return [...new Set(imports)];
+}
+
+export function extractAngularExports(content: string, filePath: string): SymbolStub[] {
+  const exports: SymbolStub[] = [];
+
+  const componentRegex = /export\s+class\s+(\w+)/g;
+  let m;
+  while ((m = componentRegex.exec(content)) !== null) {
+    const name = m[1];
+    let kind: 'class' | 'function' | 'interface' = 'class';
+
+    if (/@Component/.test(content)) kind = 'class';
+    else if (/@Injectable/.test(content)) kind = 'class';
+    else if (/@Pipe/.test(content)) kind = 'function';
+
+    exports.push({ name, kind, signature: `class ${name}` });
+  }
+
+  const interfaceRegex = /export\s+interface\s+(\w+)/g;
+  while ((m = interfaceRegex.exec(content)) !== null) {
+    exports.push({ name: m[1], kind: 'interface', signature: `interface ${m[1]}` });
+  }
+
+  const fnRegex = /export\s+(?:async\s+)?function\s+(\w+)/g;
+  while ((m = fnRegex.exec(content)) !== null) {
+    exports.push({ name: m[1], kind: 'function', signature: `${m[1]}()` });
+  }
+
+  if (exports.length === 0) {
+    const base = path.basename(filePath, path.extname(filePath));
+    exports.push({ name: base, kind: 'const', signature: `module ${base}` });
+  }
+
+  return exports;
+}
+
+function resolveAngularImport(spec: string, fromDir: string, allFiles: Set<string>): string | null {
+  if (!spec.startsWith('.')) return null;
+
+  const base = path.posix.normalize(path.posix.join(fromDir, spec));
+  const extensions = ['.ts', '.html', '.css', '.scss'];
+  const normalized = base.replace(/\\/g, '/').replace(/^\.\//, '');
+
+  const candidates = [
+    normalized,
+    ...extensions.map((e) => `${normalized}${e}`),
+  ];
+
+  for (const c of candidates) {
+    const clean = c.replace(/^\.\//, '');
+    if (allFiles.has(clean)) return clean;
+  }
+
+  for (const file of allFiles) {
+    if (file.replace(/\.[^.]+$/, '') === normalized) return file;
+  }
+
   return null;
 }
 

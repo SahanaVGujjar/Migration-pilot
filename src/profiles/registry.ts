@@ -4,6 +4,8 @@ import { tsToJsProfile } from './ts-to-js';
 import { classToHooksProfile } from './class-to-hooks';
 import { pythonToJavaProfile } from './python-to-java';
 import { javaToPythonProfile } from './java-to-python';
+import { angularToReactProfile } from './angular-to-react';
+import { reactToAngularProfile } from './react-to-angular';
 
 const profiles: Record<string, MigrationProfile> = {
   'js-to-ts': jsToTsProfile,
@@ -11,6 +13,8 @@ const profiles: Record<string, MigrationProfile> = {
   'class-to-hooks': classToHooksProfile,
   'python-to-java': pythonToJavaProfile,
   'java-to-python': javaToPythonProfile,
+  'angular-to-react': angularToReactProfile,
+  'react-to-angular': reactToAngularProfile,
 };
 
 export function getProfile(id: string): MigrationProfile {

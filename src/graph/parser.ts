@@ -2,10 +2,13 @@ import * as path from 'path';
 import { Project, SourceFile, SyntaxKind } from 'ts-morph';
 import { SymbolStub } from '../core/types';
 import {
+  extractAngularExports,
+  extractAngularImports,
   extractJavaExports,
   extractJavaImports,
   extractPythonExports,
   extractPythonImports,
+  isAngularFile,
   isJavaFile,
   isPythonFile,
 } from './polyglot-parser';
@@ -33,6 +36,9 @@ export class CodeParser {
     if (isJavaFile(normalizedFile)) {
       return extractJavaImports(content, normalizedFile, normalizedFiles);
     }
+    if (isAngularFile(normalizedFile)) {
+      return extractAngularImports(content, normalizedFile, normalizedFiles);
+    }
 
     return this.extractTsImports(content, normalizedFile, normalizedFiles);
   }
@@ -45,6 +51,9 @@ export class CodeParser {
     }
     if (isJavaFile(normalized)) {
       return extractJavaExports(content, normalized);
+    }
+    if (isAngularFile(normalized)) {
+      return extractAngularExports(content, normalized);
     }
 
     return this.extractTsExports(content, normalized);

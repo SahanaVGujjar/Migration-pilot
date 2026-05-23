@@ -22,6 +22,10 @@ export class RuleEngine {
       code = this.pythonToJavaRules(code, changes, sourcePath);
     } else if (profile.id === 'java-to-python') {
       code = this.javaToPythonRules(code, changes);
+    } else if (profile.id === 'angular-to-react') {
+      code = this.angularToReactRules(code, changes, sourcePath);
+    } else if (profile.id === 'react-to-angular') {
+      code = this.reactToAngularRules(code, changes, sourcePath);
     }
 
     const exports = this.extractExportsForProfile(profile, code, sourcePath, content);
@@ -31,7 +35,9 @@ export class RuleEngine {
       (profile.id === 'js-to-ts' && this.needsSemanticTyping(content)) ||
       (profile.id === 'class-to-hooks' && /class\s+\w+\s+extends\s+(React\.)?Component/.test(content)) ||
       profile.id === 'python-to-java' ||
-      profile.id === 'java-to-python';
+      profile.id === 'java-to-python' ||
+      profile.id === 'angular-to-react' ||
+      profile.id === 'react-to-angular';
 
     return { code, targetPath, changes, exports, needsLLM };
   }
@@ -148,6 +154,119 @@ export class RuleEngine {
     return code;
   }
 
+  private angularToReactRules(code: string, changes: string[], sourcePath: string): string {
+    let result = code;
+
+    if (/\.component\.html$/.test(sourcePath)) {
+      changes.push('Angular template file — will be merged into .tsx by LLM');
+      return result;
+    }
+
+    if (/\.component\.css$|\.component\.scss$/.test(sourcePath)) {
+      changes.push('Angular style file — will be converted to CSS Module by LLM');
+      return result;
+    }
+
+    if (/\.module\.ts$/.test(sourcePath)) {
+      changes.push('Angular module file — will be decomposed into direct imports');
+      return result;
+    }
+
+    if (/@Component\s*\(/.test(result)) {
+      changes.push('Angular @Component detected — LLM will convert to React functional component');
+
+      const inputMatches = result.match(/@Input\(\)\s+\w+/g);
+      if (inputMatches) {
+        changes.push(`Found ${inputMatches.length} @Input() prop(s) — will become React props`);
+      }
+
+      const outputMatches = result.match(/@Output\(\)\s+\w+/g);
+      if (outputMatches) {
+        changes.push(`Found ${outputMatches.length} @Output() event(s) — will become callback props`);
+      }
+    }
+
+    if (/@Injectable\s*\(/.test(result)) {
+      changes.push('Angular @Injectable service — LLM will convert to custom React hook or Context');
+    }
+
+    if (/@Pipe\s*\(/.test(result)) {
+      changes.push('Angular @Pipe detected — LLM will convert to utility function');
+    }
+
+    if (/@Directive\s*\(/.test(result)) {
+      changes.push('Angular @Directive detected — LLM will convert to React hook or HOC');
+    }
+
+    if (/Observable|Subject|BehaviorSubject|pipe\(/.test(result)) {
+      changes.push('RxJS patterns detected — will be converted to React hooks (useState/useEffect)');
+    }
+
+    if (/FormGroup|FormControl|FormBuilder/.test(result)) {
+      changes.push('Angular Reactive Forms detected — will be converted to React controlled components');
+    }
+
+    return result;
+  }
+
+  private reactToAngularRules(code: string, changes: string[], sourcePath: string): string {
+    let result = code;
+
+    if (/\.module\.css$/.test(sourcePath)) {
+      changes.push('CSS Module file — will be converted to Angular component styles');
+      return result;
+    }
+
+    const hasJSX = /<\w+[\s>\/]/.test(result) && /(?:return|=>)\s*(?:\(?\s*<)/.test(result);
+    if (hasJSX) {
+      changes.push('JSX detected — LLM will extract Angular template with proper directives');
+    }
+
+    const hookPatterns = [
+      { regex: /useState\s*[<(]/, name: 'useState → class property' },
+      { regex: /useEffect\s*\(/, name: 'useEffect → ngOnInit/ngOnDestroy' },
+      { regex: /useContext\s*\(/, name: 'useContext → @Injectable service' },
+      { regex: /useRef\s*[<(]/, name: 'useRef → @ViewChild or class property' },
+      { regex: /useMemo\s*\(/, name: 'useMemo → getter or computed property' },
+      { regex: /useCallback\s*\(/, name: 'useCallback → class method' },
+      { regex: /useReducer\s*\(/, name: 'useReducer → service with state management' },
+    ];
+
+    for (const { regex, name } of hookPatterns) {
+      if (regex.test(result)) {
+        changes.push(`React ${name}`);
+      }
+    }
+
+    if (/useNavigate|useParams|useLocation|<Link[\s>]|<Route[\s>]/.test(result)) {
+      changes.push('React Router patterns detected — will be converted to Angular Router');
+    }
+
+    if (/createContext|\.Provider[\s>]/.test(result)) {
+      changes.push('React Context detected — will be converted to Angular @Injectable service');
+    }
+
+    const componentName = this.inferReactComponentName(result);
+    if (componentName) {
+      changes.push(`Component "${componentName}" will become Angular @Component class`);
+    }
+
+    return result;
+  }
+
+  private inferReactComponentName(code: string): string | null {
+    const exportDefault = code.match(/export\s+default\s+(?:function\s+)?(\w+)/);
+    if (exportDefault) return exportDefault[1];
+
+    const exportNamed = code.match(/export\s+(?:const|function)\s+(\w+)/);
+    if (exportNamed) return exportNamed[1];
+
+    const arrowComponent = code.match(/const\s+(\w+)\s*(?::\s*React\.FC)?.*?=.*?=>/);
+    if (arrowComponent) return arrowComponent[1];
+
+    return null;
+  }
+
   private inferJavaClassName(sourcePath: string): string {
     const base = path.basename(sourcePath, path.extname(sourcePath));
     return base
@@ -162,7 +281,12 @@ export class RuleEngine {
     sourcePath: string,
     originalContent: string
   ): SymbolStub[] {
-    if (profile.id === 'python-to-java' || profile.id === 'java-to-python') {
+    if (
+      profile.id === 'python-to-java' ||
+      profile.id === 'java-to-python' ||
+      profile.id === 'angular-to-react' ||
+      profile.id === 'react-to-angular'
+    ) {
       const parser = new CodeParser();
       const fromOriginal = parser.extractExports(originalContent, sourcePath);
       if (fromOriginal.length > 0) return fromOriginal;

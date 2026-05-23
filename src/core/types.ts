@@ -3,7 +3,9 @@ export type ProfileId =
   | 'ts-to-js'
   | 'class-to-hooks'
   | 'python-to-java'
-  | 'java-to-python';
+  | 'java-to-python'
+  | 'angular-to-react'
+  | 'react-to-angular';
 
 export type LLMProviderType = 'ollama' | 'openai' | 'openrouter' | 'groq' | 'mock';
 
