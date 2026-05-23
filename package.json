@@ -1,7 +1,7 @@
 {
   "name": "migration-pilot",
-  "version": "1.0.0",
-  "description": "Automated Language/Framework Migration Assistant — migrate codebases from JS to TS, React class to hooks, and more.",
+  "version": "2.0.0",
+  "description": "Token-optimized multi-language frontend migration assistant with dependency-tree LLM conversion",
   "main": "dist/index.js",
   "bin": {
     "migration-pilot": "./bin/migration-pilot.js"
@@ -10,30 +10,32 @@
     "build": "tsc",
     "dev": "ts-node src/index.ts",
     "start": "node dist/index.js",
+    "test": "node --test tests/*.test.js",
+    "test:build": "npm run build && npm test",
     "lint": "eslint src --ext .ts"
   },
   "keywords": [
     "migration",
     "typescript",
+    "javascript",
     "codemod",
-    "refactoring",
-    "developer-tools"
+    "llm",
+    "token-optimization"
   ],
-  "author": "",
   "license": "MIT",
   "dependencies": {
+    "boxen": "^5.1.2",
     "chalk": "^4.1.2",
+    "cli-table3": "^0.6.5",
     "commander": "^12.1.0",
+    "figures": "^3.2.0",
     "glob": "^10.4.5",
     "ora": "^5.4.1",
-    "ts-morph": "^24.0.0",
-    "boxen": "^5.1.2",
-    "cli-table3": "^0.6.5",
-    "figures": "^3.2.0"
+    "ts-morph": "^24.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "typescript": "^5.7.0",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.0"
   }
 }

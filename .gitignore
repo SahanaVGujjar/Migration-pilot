@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Environment & secrets (keep .env.example)
+.env
+.env.local
+.env.*.local
+
+# Migration artifacts (only belong under user's --to path, never in this repo)
+.migration-pilot/
+
+# Python / Java
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+target/
+out/
+*.class
+
+# Test & coverage
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE & OS
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db

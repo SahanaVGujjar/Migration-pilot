@@ -1,184 +1,98 @@
-# ✈ migration-pilot
+# migration-pilot
 
-**Automated Language/Framework Migration Assistant**
+**Token-optimized migration assistant — source → destination only**
 
-Migrate entire codebases from JavaScript to TypeScript, React class components to hooks, and more — automatically, safely, and incrementally.
+Reads your project from `--from`, writes the migrated result to `--to`. **Never modifies the source tree** and **never writes into this tool’s repository** (use paths outside this repo).
 
-## The Problem
+## Supported profiles
 
-Migrations take **weeks to months**. Companies spend **$100K+** on them. Developers dread them. The process is:
-- Manual, tedious, and error-prone
-- Risky — one wrong change can break everything  
-- Hard to track progress across hundreds of files
+| Profile | Conversion |
+|---------|------------|
+| `js-to-ts` | JavaScript → TypeScript |
+| `ts-to-js` | TypeScript → JavaScript |
+| `class-to-hooks` | React class → hooks |
+| `python-to-java` | Python → Java |
+| `java-to-python` | Java → Python |
 
-## The Solution
-
-`migration-pilot` scans your codebase, builds a dependency graph, creates a migration plan, and executes it **file by file in dependency order** — with automatic rollback if tests fail.
-
-```
-$ migration-pilot migrate js-to-ts -d ./my-project
-
-  ╔═══════════════════════════════════════════════╗
-  ║  ✈  migration-pilot                           ║
-  ║  Automated Language/Framework Migration        ║
-  ╚═══════════════════════════════════════════════╝
-
-  ██████████████████████████████ 100%
-
-  ✓ Migrated:       347 / 347
-  ✗ Failed:            0 / 347
-
-  Status: COMPLETE ✓    Duration: 4m 32s
-```
-
-## Features
-
-- **Smart Dependency Analysis** — Builds a full import graph and migrates files in the correct order (leaves first)
-- **Incremental Batching** — Migrates N files at a time, runs tests after each batch
-- **Automatic Rollback** — If tests fail after a batch, it rolls back that batch and flags files for manual review
-- **JS → TypeScript** — Converts `require` to `import`, `module.exports` to `export`, adds type annotations, converts PropTypes to interfaces
-- **React Class → Hooks** — Converts class components to functional components with `useState`, `useEffect`, `useCallback`
-- **AI-Powered Type Inference** — Optional Ollama integration for intelligent type inference (not just `any` everywhere)
-- **Progress Dashboard** — Real-time progress bar, ETA, batch status
-- **Detailed Reports** — JSON report saved after every migration
-
-## Installation
+## Install
 
 ```bash
-# Clone the repo
-git clone https://github.com/your-username/migration-pilot.git
-cd migration-pilot
-
-# Install dependencies
 npm install
-
-# Build
 npm run build
-
-# Link globally (optional)
-npm link
 ```
 
 ## Usage
 
-### Scan a codebase (preview only)
+```bash
+migration-pilot migrate <profile> --from <source-root> --to <destination-root> [options]
+```
+
+### Example
 
 ```bash
-migration-pilot scan js-to-ts -d ./your-project/src
+node dist/index.js migrate js-to-ts \
+  --from E:/projects/my-app/src \
+  --to E:/projects/my-app-ts/src \
+  --no-tests
 ```
 
-Shows the dependency graph and migration order without changing any files.
-
-### Dry run (see the plan)
+### Scan (read-only on source)
 
 ```bash
-migration-pilot migrate js-to-ts -d ./your-project/src --dry-run
+node dist/index.js scan js-to-ts \
+  --from E:/projects/my-app/src \
+  --to E:/tmp/my-app-ts-out
 ```
 
-### Execute migration
+(`--to` is required for path validation; dry-run scan does not write files.)
+
+### Report (read from destination)
 
 ```bash
-# Basic migration
-migration-pilot migrate js-to-ts -d ./your-project/src
-
-# With custom batch size and test command
-migration-pilot migrate js-to-ts -d ./src -b 5 -t "npm test"
-
-# With AI-assisted type inference (requires Ollama running locally)
-migration-pilot migrate js-to-ts -d ./src --ai --ai-model codellama
-
-# React class to hooks migration
-migration-pilot migrate class-to-hooks -d ./src/components
+node dist/index.js report --to E:/projects/my-app-ts/src
 ```
 
-### View last report
+## LLM (OpenRouter / Groq / Ollama)
+
+Copy `.env.example` → `.env`:
+
+```env
+LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=your-key
+```
 
 ```bash
-migration-pilot report -d ./your-project/src
+node dist/index.js migrate python-to-java \
+  --from E:/projects/python-app \
+  --to E:/projects/java-app \
+  --no-tests
 ```
 
-## Supported Migrations
+| Variable | Purpose |
+|----------|---------|
+| `LLM_PROVIDER` | `openrouter`, `groq`, `openai`, `ollama` |
+| `OPENROUTER_API_KEY` / `GROQ_API_KEY` | API keys |
+| `USE_MOCK_AI=true` | No API calls (testing only) |
 
-| Migration | Command | What It Does |
-|---|---|---|
-| **JS → TypeScript** | `js-to-ts` | Renames files, converts imports/exports, adds types, converts PropTypes |
-| **React Class → Hooks** | `class-to-hooks` | Converts class components to functional components with hooks |
+## Common flags
 
-## How It Works
+| Flag | Description |
+|------|-------------|
+| `--from` | Source root (read only) |
+| `--to` | Destination root (all output + `.migration-pilot/`) |
+| `--no-ai` | Rules-only, no LLM |
+| `--no-tests` | Skip validators and tests |
+| `--clean` | Delete destination before run |
+| `--git` | Git backup in **destination** only (off by default) |
+| `--verbose` | Token / debug logging |
 
-```
-┌─────────────┐    ┌──────────────┐    ┌─────────────┐    ┌──────────┐
-│   SCAN      │───▶│    PLAN      │───▶│   EXECUTE   │───▶│  REPORT  │
-│             │    │              │    │             │    │          │
-│ Find files  │    │ Build order  │    │ Transform   │    │ Summary  │
-│ Parse deps  │    │ Create       │    │ Batch by    │    │ Failures │
-│ Build graph │    │ batches      │    │ batch       │    │ Manual   │
-│             │    │ Estimate     │    │ Test each   │    │ review   │
-│             │    │ time         │    │ Rollback    │    │ list     │
-│             │    │              │    │ if failed   │    │          │
-└─────────────┘    └──────────────┘    └─────────────┘    └──────────┘
-```
+## Tests
 
-### Phase 1: Scan
-- Discovers all relevant files (`.js`, `.jsx` for JS→TS)
-- Parses every `import`/`require` statement
-- Builds a complete dependency graph
-
-### Phase 2: Plan
-- Topologically sorts files (leaves first — so dependencies are migrated before dependents)
-- Splits into batches of configurable size
-- Estimates total migration time
-
-### Phase 3: Execute  
-- Transforms each file using AST-based rules
-- For JS→TS: converts `require` → `import`, adds types, fixes extensions
-- Runs tests after each batch
-- If tests fail → **rolls back the entire batch**
-- Commits each successful batch to git (if in a git repo)
-
-### Phase 4: Report
-- Shows final statistics: migrated, failed, rolled back
-- Lists files needing manual review
-- Saves detailed JSON report
-
-## AI-Powered Type Inference (Optional)
-
-By default, `migration-pilot` uses rule-based type inference (analyzing default values, usage patterns, and JSDoc comments). For smarter types, enable AI:
+Fixtures live under `test/fixtures/` (not migrated by normal CLI use).
 
 ```bash
-# Start Ollama with CodeLlama
-ollama pull codellama
-ollama serve
-
-# Run migration with AI
-migration-pilot migrate js-to-ts -d ./src --ai
+npm run test:build
 ```
-
-The AI will:
-- Infer meaningful types instead of `any`
-- Generate interfaces from object usage patterns
-- Respect confidence thresholds (only applies high-confidence inferences)
-
-## CLI Options
-
-| Option | Description | Default |
-|---|---|---|
-| `-d, --dir <path>` | Target directory | `.` |
-| `-b, --batch-size <n>` | Files per batch | `10` |
-| `-t, --test-command <cmd>` | Test command | Auto-detected |
-| `--no-tests` | Skip tests | `false` |
-| `--dry-run` | Preview only | `false` |
-| `--ai` | Enable Ollama AI | `false` |
-| `--ai-model <model>` | Ollama model | `codellama` |
-| `--ai-url <url>` | Ollama API URL | `http://localhost:11434` |
-
-## Tech Stack
-
-- **TypeScript** — The tool itself is written in TypeScript
-- **Commander.js** — CLI framework
-- **chalk + ora** — Beautiful terminal output
-- **glob** — File discovery
-- **Ollama** — Optional local AI for type inference
 
 ## License
 
