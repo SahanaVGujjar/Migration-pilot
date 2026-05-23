@@ -1,10 +1,6 @@
-interface HeaderProps {
-  title: string;
-  menuItems: any[];
-  onSearch?: (...args: any[]) => any;
-}
-
 import React from 'react';
+import PropTypes from 'prop-types';
+
 class Header extends React.Component {
   constructor(props) {
     super(props);
@@ -66,6 +62,10 @@ class Header extends React.Component {
   }
 }
 
-;
+Header.propTypes = {
+  title: PropTypes.string.isRequired,
+  menuItems: PropTypes.array.isRequired,
+  onSearch: PropTypes.func,
+};
 
 export default Header;

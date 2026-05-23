@@ -1,9 +1,5 @@
-interface UserCardProps {
-  user: Record<string, any>;
-  onDelete?: (...args: any[]) => any;
-}
-
 import React from 'react';
+import PropTypes from 'prop-types';
 import { capitalize } from '../utils/format';
 
 class UserCard extends React.Component {
@@ -50,6 +46,9 @@ class UserCard extends React.Component {
   }
 }
 
-;
+UserCard.propTypes = {
+  user: PropTypes.object.isRequired,
+  onDelete: PropTypes.func,
+};
 
 export default UserCard;
